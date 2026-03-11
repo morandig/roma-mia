@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Roma Mia — Ma carte de voyage</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=DM+Sans:wght@300;400;500&display=swap');
+:root{--cream:#f5f0e8;--terra:#c4693a;--gold:#c9a84c;--dark:#1e1a16;--muted:#8a7f72;--white:#fdfaf5;--green:#2e9c6b;}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'DM Sans',sans-serif;background:var(--cream);color:var(--dark);height:100dvh;display:flex;flex-direction:column;overflow:hidden;}
+header{background:var(--dark);color:var(--cream);padding:10px 18px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;}
+header h1{font-family:'Playfair Display',serif;font-size:1.35rem;letter-spacing:.03em;}
+header h1 span{color:var(--gold);font-style:italic;}
+.hbtns{display:flex;gap:8px;}
+.hbtn{padding:4px 12px;border-radius:6px;border:none;font-size:.75rem;font-family:'DM Sans',sans-serif;font-weight:500;cursor:pointer;}
+.hbtn-gold{background:var(--gold);color:#1e1a16;}
+.hbtn-out{background:transparent;color:var(--cream);border:1px solid #5a5040;}
+.app{display:flex;flex:1;overflow:hidden;}
+.map-panel{flex:1;position:relative;overflow:hidden;background:#e8dfc8;}
+#svgMap{position:absolute;inset:0;width:100%;height:100%;cursor:default;}
+#markersLayer{position:absolute;inset:0;z-index:10;pointer-events:none;}
+#proxSvg{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:8;}
+#tooltip{position:absolute;z-index:50;background:white;border-radius:10px;padding:10px 13px;box-shadow:0 4px 20px rgba(0,0,0,.18);max-width:230px;pointer-events:none;font-size:.8rem;line-height:1.4;display:none;}
+.tt-name{font-weight:600;font-size:.88rem;margin-bottom:3px;}
+.tt-type{color:var(--muted);font-size:.74rem;}
+.tt-note{margin-top:5px;color:#555;}
+.tt-edit{display:block;margin-top:6px;color:var(--terra);text-decoration:underline;font-size:.74rem;pointer-events:all;cursor:pointer;}
+#gpsDotMap{position:absolute;display:none;z-index:20;pointer-events:none;width:16px;height:16px;}
+.gps-ring{width:16px;height:16px;border-radius:50%;background:#1e88e5;border:3px solid white;box-shadow:0 0 0 4px rgba(30,136,229,.3);}
+.sidebar{width:300px;background:var(--white);display:flex;flex-direction:column;border-left:1px solid #e0d8cc;overflow:hidden;flex-shrink:0;}
+@media(max-width:640px){.app{flex-direction:column;}.sidebar{width:100%;height:210px;border-left:none;border-top:1px solid #e0d8cc;}.map-panel{flex:1;}}
+.ctrl-bar{padding:10px 12px 8px;background:var(--cream);border-bottom:1px solid #e0d8cc;display:flex;flex-wrap:wrap;gap:6px;}
+.fbtn{padding:4px 11px;border-radius:20px;border:1.5px solid #ccc;background:white;font-family:'DM Sans',sans-serif;font-size:.76rem;cursor:pointer;transition:all .2s;color:var(--dark);}
+.fbtn.on{border-color:var(--terra);background:var(--terra);color:white;}
+.radius-row{padding:7px 12px;border-bottom:1px solid #e0d8cc;display:flex;align-items:center;gap:8px;font-size:.76rem;color:var(--muted);}
+.radius-row input{flex:1;accent-color:var(--terra);}
+.rlbl{min-width:42px;font-weight:500;color:var(--terra);}
+.gps-row{padding:7px 12px;border-bottom:1px solid #e0d8cc;display:flex;align-items:center;gap:8px;font-size:.76rem;}
+.gdot{width:9px;height:9px;border-radius:50%;background:#ccc;flex-shrink:0;}
+.gdot.on{background:var(--green);animation:gpp 1.4s infinite;}
+@keyframes gpp{0%,100%{opacity:1}50%{opacity:.4}}
+.gstatus{flex:1;color:var(--muted);}
+.gbtn{padding:4px 10px;border-radius:6px;border:none;font-size:.73rem;font-family:'DM Sans',sans-serif;font-weight:500;cursor:pointer;}
+.gbtn-on{background:var(--green);color:white;}
+.gbtn-off{background:#d94f4f;color:white;}
+.prox-info{padding:5px 12px;background:#fff8f0;border-bottom:1px solid #f0e0cc;font-size:.74rem;color:var(--terra);display:none;}
+.plist{flex:1;overflow-y:auto;}
+.pitem{padding:9px 12px;border-bottom:1px solid #f0ebe0;cursor:pointer;display:flex;gap:9px;align-items:flex-start;transition:background .15s;}
+.pitem:hover{background:#faf5ec;}
+.pitem.sel{background:#fff3e8;border-left:3px solid var(--terra);}
+.pitem.near{background:#f0faf5;}
+.picon{font-size:1.25rem;flex-shrink:0;margin-top:1px;}
+.pname{font-weight:500;font-size:.86rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.pmeta{font-size:.72rem;color:var(--muted);margin-top:2px;display:flex;gap:5px;flex-wrap:wrap;align-items:center;}
+.bdg{padding:1px 7px;border-radius:10px;font-size:.67rem;font-weight:500;}
+.bdg-near{background:#d1f5e4;color:#1e7a4e;}
+.bdg-day{background:#e8eef8;color:#3a5a8c;}
+.pdist{color:var(--terra);font-weight:500;}
+.pnote{font-size:.7rem;color:var(--muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.sfooter{padding:9px 12px;border-top:1px solid #e0d8cc;display:flex;gap:8px;}
+.abtn{flex:1;padding:7px;border-radius:8px;border:none;font-family:'DM Sans',sans-serif;font-size:.77rem;font-weight:500;cursor:pointer;transition:all .2s;}
+.abtn-p{background:var(--terra);color:white;}
+.abtn-s{background:var(--cream);color:var(--dark);border:1px solid #ccc;}
+.moverlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9999;align-items:center;justify-content:center;}
+.moverlay.open{display:flex;}
+.modal{background:var(--white);border-radius:14px;padding:22px;width:350px;max-width:95vw;box-shadow:0 4px 30px rgba(0,0,0,.2);max-height:90vh;overflow-y:auto;}
+.modal h2{font-family:'Playfair Display',serif;font-size:1.15rem;margin-bottom:14px;}
+.fg{margin-bottom:11px;}
+.fg label{display:block;font-size:.76rem;color:var(--muted);margin-bottom:3px;font-weight:500;}
+.fg input,.fg select,.fg textarea{width:100%;padding:7px 9px;border:1.5px solid #ddd;border-radius:8px;font-family:'DM Sans',sans-serif;font-size:.83rem;background:white;color:var(--dark);}
+.fg input:focus,.fg select:focus,.fg textarea:focus{outline:none;border-color:var(--terra);}
+.frow{display:flex;gap:9px;}
+.frow .fg{flex:1;}
+.mactions{display:flex;gap:9px;margin-top:14px;}
+.mactions button{flex:1;padding:8px;border-radius:8px;border:none;font-family:'DM Sans',sans-serif;font-weight:500;cursor:pointer;font-size:.83rem;}
+.mbtn-save{background:var(--terra);color:white;}
+.mbtn-cancel{background:var(--cream);color:var(--dark);border:1px solid #ccc;}
+.mbtn-del{background:#d94f4f;color:white;}
+</style>
+</head>
+<body>
+<header>
+  <h1>Roma <span>Mia</span> 🏛️</h1>
+  <div class="hbtns">
+    <button class="hbtn hbtn-gold" onclick="exportData()">⬇ Export</button>
+    <label class="hbtn hbtn-out" style="cursor:pointer;">⬆ Import<input type="file" accept=".json" onchange="importData(event)" style="display:none"></label>
+  </div>
+</header>
+<div class="app">
+  <div class="map-panel" id="mapPanel">
+    <!-- SVG Map of Rome (self-contained) -->
+    <svg id="svgMap" viewBox="0 0 800 600" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none">
+      <rect width="800" height="600" fill="#e8dfc8"/>
+      <!-- Tiber -->
+      <path d="M55 50 Q100 100 120 160 Q145 230 135 300 Q125 370 160 430 Q200 490 250 550" stroke="#7ab8d0" stroke-width="24" fill="none" opacity=".65"/>
+      <path d="M55 50 Q100 100 120 160 Q145 230 135 300 Q125 370 160 430 Q200 490 250 550" stroke="#b8dcea" stroke-width="14" fill="none" opacity=".5"/>
+      <!-- Streets -->
+      <g stroke="#c4b896" stroke-width="2.5" fill="none" opacity=".7">
+        <line x1="0" y1="295" x2="800" y2="295"/>
+        <line x1="400" y1="0" x2="400" y2="600"/>
+        <line x1="160" y1="0" x2="185" y2="600"/>
+        <line x1="600" y1="0" x2="575" y2="600"/>
+        <path d="M130 210 Q290 275 490 255 Q660 238 800 295"/>
+        <path d="M130 395 Q300 378 460 395 Q630 415 800 378"/>
+        <path d="M0 155 Q200 185 400 170 Q600 155 800 180"/>
+        <path d="M0 435 Q200 455 400 445 Q600 435 800 450"/>
+      </g>
+      <!-- City blocks -->
+      <g fill="#d0c8b0" opacity=".55">
+        <rect x="185" y="90" width="110" height="75" rx="5"/>
+        <rect x="315" y="75" width="95" height="60" rx="5"/>
+        <rect x="440" y="90" width="125" height="85" rx="5"/>
+        <rect x="610" y="200" width="110" height="75" rx="5"/>
+        <rect x="270" y="335" width="105" height="70" rx="5"/>
+        <rect x="420" y="355" width="85" height="65" rx="5"/>
+        <rect x="55" y="310" width="75" height="60" rx="5"/>
+        <rect x="185" y="455" width="110" height="75" rx="5"/>
+        <rect x="490" y="415" width="140" height="85" rx="5"/>
+        <rect x="645" y="345" width="100" height="80" rx="5"/>
+        <rect x="320" y="200" width="150" height="80" rx="5"/>
+      </g>
+      <!-- Parks -->
+      <ellipse cx="530" cy="175" rx="75" ry="52" fill="#aecca0" opacity=".45"/>
+      <ellipse cx="205" cy="505" rx="52" ry="38" fill="#aecca0" opacity=".45"/>
+      <ellipse cx="680" cy="110" rx="60" ry="40" fill="#aecca0" opacity=".4"/>
+      <!-- Labels -->
+      <text x="142" y="188" font-size="10" fill="#5a5040" font-family="Georgia,serif" opacity=".85" font-style="italic">Vaticano</text>
+      <text x="335" y="258" font-size="9" fill="#5a5040" font-family="Georgia,serif" opacity=".75" font-style="italic">Centro Storico</text>
+      <text x="218" y="438" font-size="9" fill="#5a5040" font-family="Georgia,serif" opacity=".75" font-style="italic">Trastevere</text>
+      <text x="465" y="398" font-size="9" fill="#5a5040" font-family="Georgia,serif" opacity=".75" font-style="italic">Colosseo</text>
+      <text x="518" y="179" font-size="9" fill="#4a7a3a" font-family="Georgia,serif" opacity=".7" font-style="italic">V. Borghese</text>
+      <text x="94" y="302" font-size="8" fill="#5a9ab5" font-family="Georgia,serif" opacity=".7" transform="rotate(-68,94,302)" font-style="italic">Tevere</text>
+    </svg>
+    <!-- Markers -->
+    <div id="markersLayer"></div>
+    <!-- Proximity circle SVG overlay -->
+    <svg id="proxSvg" viewBox="0 0 800 600" preserveAspectRatio="none" style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:9;">
+      <circle id="proxCircle" cx="0" cy="0" r="0" fill="rgba(196,105,58,0.09)" stroke="#c4693a" stroke-width="1.5" stroke-dasharray="7 4" display="none"/>
+    </svg>
+    <!-- Tooltip -->
+    <div id="tooltip">
+      <div class="tt-name" id="ttName"></div>
+      <div class="tt-type" id="ttType"></div>
+      <div class="tt-note" id="ttNote"></div>
+      <span class="tt-edit" id="ttEdit">✏️ Modifier</span>
+    </div>
+    <!-- GPS dot -->
+    <div id="gpsDotMap"><div class="gps-ring"></div></div>
+    <!-- Hint -->
+    <div style="position:absolute;bottom:8px;left:50%;transform:translateX(-50%);background:rgba(30,26,22,.55);color:#e8dfc8;font-size:.7rem;padding:3px 10px;border-radius:20px;pointer-events:none;z-index:5;">Clic droit sur la carte → coordonnées automatiques</div>
+  </div>
+
+  <div class="sidebar">
+    <div class="ctrl-bar">
+      <button class="fbtn on" onclick="setFilter('all',this)">Tout</button>
+      <button class="fbtn" onclick="setFilter('musée',this)">🏛 Musées</button>
+      <button class="fbtn" onclick="setFilter('restaurant',this)">🍝 Restos</button>
+      <button class="fbtn" onclick="setFilter('café',this)">☕ Cafés</button>
+      <button class="fbtn" onclick="setFilter('pizzeria',this)">🍕 Pizza</button>
+    </div>
+    <div class="radius-row">
+      <span>Rayon :</span>
+      <input type="range" id="rSlider" min="10" max="200" value="50" oninput="updateRadius(this.value)">
+      <span class="rlbl" id="rlbl">~700m</span>
+    </div>
+    <div class="gps-row">
+      <div class="gdot" id="gdot"></div>
+      <span class="gstatus" id="gstatus">GPS désactivé</span>
+      <button class="gbtn gbtn-on" id="gpsBtn" onclick="toggleGPS()">📍 Ma position</button>
+    </div>
+    <div class="prox-info" id="proxInfo"></div>
+    <div class="plist" id="plist"></div>
+    <div class="sfooter">
+      <button class="abtn abtn-p" onclick="openAdd()">+ Ajouter</button>
+      <button class="abtn abtn-s" onclick="clearSel()">✕ Effacer</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL -->
+<div class="moverlay" id="moverlay">
+  <div class="modal">
+    <h2 id="mtitle">Ajouter un lieu</h2>
+    <div class="fg"><label>Nom *</label><input id="fName" placeholder="Ex: Pizzeria da Baffetto"></div>
+    <div class="frow">
+      <div class="fg"><label>Type *</label>
+        <select id="fType">
+          <option value="restaurant">🍝 Restaurant</option>
+          <option value="pizzeria">🍕 Pizzeria</option>
+          <option value="café">☕ Café</option>
+          <option value="musée">🏛 Musée</option>
+          <option value="autre">📍 Autre</option>
+        </select>
+      </div>
+      <div class="fg"><label>Jour</label><input id="fDay" placeholder="Jour 1..."></div>
+    </div>
+    <div class="frow">
+      <div class="fg"><label>Latitude *</label><input type="number" id="fLat" step=".000001" placeholder="41.9028"></div>
+      <div class="fg"><label>Longitude *</label><input type="number" id="fLng" step=".000001" placeholder="12.4964"></div>
+    </div>
+    <div class="fg"><label>Notes</label><textarea id="fNotes" rows="3" placeholder="Prix, horaires, réservation…"></textarea></div>
+    <div class="mactions">
+      <button class="mbtn-cancel" onclick="closeMod()">Annuler</button>
+      <button class="mbtn-del" id="btnDel" onclick="delPlace()" style="display:none">Supprimer</button>
+      <button class="mbtn-save" onclick="savePlace()">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── PROJECTION ───────────────────────────────────────────────────────────────
+const MAP={
+  latMin:41.855,latMax:41.940,lngMin:12.430,lngMax:12.540,W:800,H:600,
+  toXY(lat,lng){return{x:(lng-this.lngMin)/(this.lngMax-this.lngMin)*this.W,y:(1-(lat-this.latMin)/(this.latMax-this.latMin))*this.H};},
+  toLatLng(x,y){return{lat:(1-y/this.H)*(this.latMax-this.latMin)+this.latMin,lng:x/this.W*(this.lngMax-this.lngMin)+this.lngMin};},
+  mToSVG(m){return m/111320/(this.latMax-this.latMin)*this.H;}
+};
+
+// ── DATA ─────────────────────────────────────────────────────────────────────
+let places=[
+  {id:1,name:"Musées du Vatican",type:"musée",lat:41.9065,lng:12.4536,notes:"Réserver en ligne obligatoire. Arriver tôt.",day:"Jour 1"},
+  {id:2,name:"Colisée",type:"musée",lat:41.8902,lng:12.4922,notes:"Billet combiné avec le Forum Romain.",day:"Jour 2"},
+  {id:3,name:"Galerie Borghèse",type:"musée",lat:41.9142,lng:12.4922,notes:"Réservation obligatoire. Max 2h.",day:"Jour 3"},
+  {id:4,name:"Panthéon",type:"musée",lat:41.8986,lng:12.4769,notes:"Entrée payante depuis 2023. Splendide.",day:"Jour 2"},
+  {id:5,name:"Pizzeria da Baffetto",type:"pizzeria",lat:41.8983,lng:12.4708,notes:"File d'attente normale. Pizza napoletana.",day:"Jour 2"},
+  {id:6,name:"Il Sorpasso",type:"restaurant",lat:41.9008,lng:12.4672,notes:"Ambiance sympa, excellent amatriciana.",day:"Jour 1"},
+  {id:7,name:"Sant'Eustachio il Caffè",type:"café",lat:41.8980,lng:12.4762,notes:"Meilleur café de Rome selon les Romains.",day:"Jour 2"},
+  {id:8,name:"Tonnarello",type:"restaurant",lat:41.8897,lng:12.4718,notes:"Trastevere. Cacio e pepe mythique.",day:"Jour 3"},
+  {id:9,name:"Roscioli",type:"restaurant",lat:41.8950,lng:12.4741,notes:"Épicerie+restaurant. Charcuterie incroyable.",day:"Jour 1"},
+  {id:10,name:"Forno Campo de' Fiori",type:"café",lat:41.8957,lng:12.4724,notes:"Pizza bianca au kilo. Ouvert matin.",day:"Jour 1"},
+];
+let nextId=11,filter='all',selId=null,proxMeters=700,editId=null,gpsActive=false,gpsWatcher=null,gpsPos=null;
+const ICONS={musée:'🏛',restaurant:'🍝',pizzeria:'🍕',café:'☕',autre:'📍'};
+const COLORS={musée:'#3a5a8c',restaurant:'#c4693a',pizzeria:'#d9832a',café:'#6b4c2a',autre:'#6a6a6a'};
+
+function getScale(){
+  const r=document.getElementById('svgMap').getBoundingClientRect();
+  return{sx:r.width/800,sy:r.height/600,rect:r};
+}
+
+// ── RENDER ───────────────────────────────────────────────────────────────────
+function render(){
+  const layer=document.getElementById('markersLayer');
+  layer.innerHTML='';
+  const{sx,sy}=getScale();
+  const cLat=getCLat(),cLng=getCLng();
+
+  places.forEach(p=>{
+    if(filter!=='all'&&p.type!==filter)return;
+    const{x,y}=MAP.toXY(p.lat,p.lng);
+    const px=x*sx,py=y*sy;
+    const isSel=selId===p.id;
+    const d=cLat!==null?distM(cLat,cLng,p.lat,p.lng):null;
+    const isNear=d!==null&&d<=proxMeters&&p.type!=='musée';
+    const sz=isSel?38:30;
+    const div=document.createElement('div');
+    div.style.cssText=`position:absolute;left:${px}px;top:${py}px;transform:translate(-50%,-50%);
+      width:${sz}px;height:${sz}px;border-radius:50%;
+      background:${isSel?'#1e1a16':COLORS[p.type]||'#666'};
+      border:${isSel?'2.5px solid #c9a84c':isNear?'2.5px solid #2e9c6b':'2px solid white'};
+      display:flex;align-items:center;justify-content:center;
+      font-size:${isSel?'1.1rem':'.88rem'};
+      box-shadow:0 2px 10px rgba(0,0,0,.28);cursor:pointer;pointer-events:all;z-index:${isSel?15:10};`;
+    div.textContent=ICONS[p.type]||'📍';
+    div.addEventListener('mouseenter',e=>showTip(e,p,d));
+    div.addEventListener('mouseleave',hideTip);
+    div.addEventListener('click',e=>{e.stopPropagation();onMarkerClick(p);});
+    layer.appendChild(div);
+  });
+
+  // GPS dot
+  const gpsDot=document.getElementById('gpsDotMap');
+  if(gpsPos){
+    const{x,y}=MAP.toXY(gpsPos.lat,gpsPos.lng);
+    gpsDot.style.display='block';
+    gpsDot.style.left=(x*sx-8)+'px';
+    gpsDot.style.top=(y*sy-8)+'px';
+  } else gpsDot.style.display='none';
+
+  updateCircle();
+  renderList();
+}
+
+function updateCircle(){
+  const c=document.getElementById('proxCircle');
+  const cLat=getCLat(),cLng=getCLng();
+  if(cLat===null){c.setAttribute('display','none');document.getElementById('proxInfo').style.display='none';return;}
+  const{x,y}=MAP.toXY(cLat,cLng);
+  c.setAttribute('cx',x);c.setAttribute('cy',y);
+  c.setAttribute('r',MAP.mToSVG(proxMeters));
+  c.setAttribute('display','');
+  const nb=places.filter(p=>p.type!=='musée'&&distM(cLat,cLng,p.lat,p.lng)<=proxMeters);
+  const info=document.getElementById('proxInfo');
+  if(nb.length){
+    info.textContent=`✓ ${nb.length} lieu${nb.length>1?'x':''} dans un rayon de ${proxMeters>=1000?(proxMeters/1000).toFixed(1)+'km':proxMeters+'m'}`;
+    info.style.display='block';
+  } else info.style.display='none';
+}
+
+function getCLat(){if(gpsPos)return gpsPos.lat;if(selId){const p=places.find(x=>x.id===selId);return p?p.lat:null;}return null;}
+function getCLng(){if(gpsPos)return gpsPos.lng;if(selId){const p=places.find(x=>x.id===selId);return p?p.lng:null;}return null;}
+
+function distM(a,b,c,d){const R=6371000,dL=(c-a)*Math.PI/180,dl=(d-b)*Math.PI/180,e=Math.sin(dL/2)**2+Math.cos(a*Math.PI/180)*Math.cos(c*Math.PI/180)*Math.sin(dl/2)**2;return R*2*Math.atan2(Math.sqrt(e),Math.sqrt(1-e));}
+
+// ── TOOLTIP ──────────────────────────────────────────────────────────────────
+function showTip(e,p,d){
+  const tip=document.getElementById('tooltip');
+  document.getElementById('ttName').textContent=(ICONS[p.type]||'📍')+' '+p.name;
+  document.getElementById('ttType').textContent=p.type+(p.day?' · '+p.day:'')+(d!==null?' · '+(d>=1000?(d/1000).toFixed(1)+'km':Math.round(d)+'m'):'');
+  const noteEl=document.getElementById('ttNote');
+  noteEl.textContent=p.notes||'';noteEl.style.display=p.notes?'':'none';
+  document.getElementById('ttEdit').onclick=()=>openEdit(p.id);
+  const panel=document.getElementById('mapPanel'),pr=panel.getBoundingClientRect();
+  let tx=e.clientX-pr.left+14,ty=e.clientY-pr.top+14;
+  if(tx+240>pr.width)tx=e.clientX-pr.left-240;
+  if(ty+120>pr.height)ty=e.clientY-pr.top-120;
+  tip.style.left=tx+'px';tip.style.top=ty+'px';tip.style.display='block';
+}
+function hideTip(){document.getElementById('tooltip').style.display='none';}
+
+// ── INTERACTIONS ─────────────────────────────────────────────────────────────
+function onMarkerClick(p){if(p.type==='musée'){selId=p.id;render();}}
+
+// Right-click → fill coords in modal
+document.getElementById('svgMap').addEventListener('contextmenu',e=>{
+  e.preventDefault();
+  const r=e.currentTarget.getBoundingClientRect();
+  const rx=(e.clientX-r.left)/r.width*800,ry=(e.clientY-r.top)/r.height*600;
+  const{lat,lng}=MAP.toLatLng(rx,ry);
+  openAdd();
+  document.getElementById('fLat').value=lat.toFixed(6);
+  document.getElementById('fLng').value=lng.toFixed(6);
+});
+
+// ── LIST ─────────────────────────────────────────────────────────────────────
+function renderList(){
+  const cLat=getCLat(),cLng=getCLng();
+  let items=places.filter(p=>filter==='all'||p.type===filter);
+  if(cLat!==null)items=items.map(p=>({...p,_d:distM(cLat,cLng,p.lat,p.lng)})).sort((a,b)=>a._d-b._d);
+  document.getElementById('plist').innerHTML=items.map(p=>{
+    const near=cLat!==null&&p._d<=proxMeters&&p.type!=='musée';
+    const dStr=cLat!==null?(p._d>=1000?(p._d/1000).toFixed(1)+'km':Math.round(p._d)+'m'):'';
+    return`<div class="pitem${selId===p.id?' sel':''}${near?' near':''}" onclick="focusPlace(${p.id})">
+      <div class="picon">${ICONS[p.type]||'📍'}</div>
+      <div style="flex:1;min-width:0;">
+        <div class="pname">${p.name}</div>
+        <div class="pmeta"><span>${p.type}</span>${p.day?`<span class="bdg bdg-day">${p.day}</span>`:''}${cLat!==null?`<span class="pdist">${dStr}</span>`:''}${near?'<span class="bdg bdg-near">✓ Proche</span>':''}</div>
+        ${p.notes?`<div class="pnote">${p.notes}</div>`:''}
+      </div></div>`;
+  }).join('');
+}
+function focusPlace(id){const p=places.find(x=>x.id===id);if(p&&p.type==='musée'){selId=id;}render();}
+
+// ── FILTER & RADIUS ──────────────────────────────────────────────────────────
+function setFilter(f,btn){filter=f;document.querySelectorAll('.fbtn').forEach(b=>b.classList.remove('on'));btn.classList.add('on');render();}
+function updateRadius(v){
+  proxMeters=Math.round(200+(v-10)/(200-10)*(3000-200));
+  document.getElementById('rlbl').textContent=proxMeters>=1000?(proxMeters/1000).toFixed(1)+'km':proxMeters+'m';
+  render();
+}
+function clearSel(){selId=null;if(!gpsPos){document.getElementById('proxCircle').setAttribute('display','none');document.getElementById('proxInfo').style.display='none';}render();}
+
+// ── GPS ──────────────────────────────────────────────────────────────────────
+function toggleGPS(){gpsActive?stopGPS():startGPS();}
+function startGPS(){
+  if(!navigator.geolocation){alert("Géolocalisation non disponible.");return;}
+  document.getElementById('gstatus').textContent='Localisation…';
+  gpsWatcher=navigator.geolocation.watchPosition(pos=>{
+    const{latitude:lat,longitude:lng,accuracy:acc}=pos.coords;
+    gpsActive=true;gpsPos={lat,lng};
+    document.getElementById('gdot').classList.add('on');
+    const a=acc<50?'✅ Excellente':acc<150?'🟡 Bonne':'🟠 Approx.';
+    document.getElementById('gstatus').textContent=`${a} (~${Math.round(acc)}m)`;
+    document.getElementById('gpsBtn').textContent='🔴 Arrêter GPS';
+    document.getElementById('gpsBtn').className='gbtn gbtn-off';
+    render();
+  },()=>{document.getElementById('gstatus').textContent='Erreur GPS';},{enableHighAccuracy:true});
+}
+function stopGPS(){
+  if(gpsWatcher)navigator.geolocation.clearWatch(gpsWatcher);
+  gpsActive=false;gpsPos=null;
+  document.getElementById('gdot').classList.remove('on');
+  document.getElementById('gstatus').textContent='GPS désactivé';
+  document.getElementById('gpsBtn').textContent='📍 Ma position';
+  document.getElementById('gpsBtn').className='gbtn gbtn-on';
+  render();
+}
+
+// ── MODAL ────────────────────────────────────────────────────────────────────
+function openAdd(){editId=null;document.getElementById('mtitle').textContent='Ajouter un lieu';['fName','fDay','fNotes'].forEach(id=>document.getElementById(id).value='');document.getElementById('fType').value='restaurant';document.getElementById('fLat').value='';document.getElementById('fLng').value='';document.getElementById('btnDel').style.display='none';document.getElementById('moverlay').classList.add('open');}
+function openEdit(id){const p=places.find(x=>x.id===id);if(!p)return;editId=id;document.getElementById('mtitle').textContent='Modifier le lieu';document.getElementById('fName').value=p.name;document.getElementById('fType').value=p.type;document.getElementById('fDay').value=p.day||'';document.getElementById('fNotes').value=p.notes||'';document.getElementById('fLat').value=p.lat;document.getElementById('fLng').value=p.lng;document.getElementById('btnDel').style.display='inline-block';document.getElementById('moverlay').classList.add('open');}
+function closeMod(){document.getElementById('moverlay').classList.remove('open');}
+function savePlace(){const name=document.getElementById('fName').value.trim(),lat=parseFloat(document.getElementById('fLat').value),lng=parseFloat(document.getElementById('fLng').value);if(!name||isNaN(lat)||isNaN(lng)){alert('Nom, latitude et longitude requis.');return;}const data={name,type:document.getElementById('fType').value,lat,lng,day:document.getElementById('fDay').value.trim(),notes:document.getElementById('fNotes').value.trim()};if(editId){const i=places.findIndex(x=>x.id===editId);places[i]={...places[i],...data};}else places.push({id:nextId++,...data});closeMod();render();}
+function delPlace(){if(!editId||!confirm('Supprimer ce lieu ?'))return;places=places.filter(x=>x.id!==editId);if(selId===editId)selId=null;closeMod();render();}
+document.getElementById('moverlay').onclick=e=>{if(e.target===document.getElementById('moverlay'))closeMod();};
+
+// ── EXPORT / IMPORT ──────────────────────────────────────────────────────────
+function exportData(){const b=new Blob([JSON.stringify({places,nextId},null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='rome-map-data.json';a.click();}
+function importData(e){const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=ev=>{try{const d=JSON.parse(ev.target.result);if(d.places){places=d.places;nextId=d.nextId||100;render();alert('Données importées !');}}catch{alert('Fichier invalide.');}};r.readAsText(f);e.target.value='';}
+
+window.addEventListener('resize',()=>render());
+render();
+</script>
+</body>
+</html>
